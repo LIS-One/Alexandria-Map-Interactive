@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>Новая Александрия — карта</title>
+<style>
+  :root{
+    --bg:#16170f;
+    --panel:#1d1f14;
+    --accent:#d8a01e;
+    --accent2:#3fae5a;
+    --text:#e8e4d4;
+    --muted:#9a9580;
+    --border:#3a3a28;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  #viewer{position:fixed;inset:0;background:#0e0f0a;}
+
+  /* title bar */
+  #bar{position:fixed;top:0;left:0;right:0;height:46px;z-index:30;
+    display:flex;align-items:center;gap:12px;padding:0 14px;
+    background:linear-gradient(180deg,rgba(20,21,14,.92),rgba(20,21,14,.55) 70%,transparent);
+    pointer-events:none;}
+  #bar h1{margin:0;font-size:15px;letter-spacing:.08em;font-weight:600;
+    text-transform:uppercase;color:var(--accent);text-shadow:0 1px 4px #000;}
+  #bar .sub{font-size:11px;color:var(--muted);text-shadow:0 1px 3px #000;}
+
+  /* pin markers */
+  .pin{width:18px;height:18px;border-radius:50% 50% 50% 0;
+    background:var(--accent);border:2px solid #16170f;
+    transform:rotate(-45deg) translate(-2px,-2px);
+    cursor:pointer;box-shadow:0 0 0 1px var(--accent),0 2px 6px rgba(0,0,0,.6);
+    transition:transform .12s ease, background .12s ease;}
+  .pin:hover{background:#ffd454;transform:rotate(-45deg) scale(1.25) translate(-2px,-2px);}
+  .pin.faction{background:var(--accent2);box-shadow:0 0 0 1px var(--accent2),0 2px 6px rgba(0,0,0,.6);}
+  .pin.faction:hover{background:#6ee08a;}
+  .pin.danger{background:#c8462f;box-shadow:0 0 0 1px #c8462f,0 2px 6px rgba(0,0,0,.6);}
+  .pin.danger:hover{background:#e9684f;}
+
+  /* info popup */
+  #info{position:fixed;z-index:40;top:0;right:0;height:100%;width:340px;max-width:86vw;
+    background:var(--panel);border-left:1px solid var(--border);
+    transform:translateX(105%);transition:transform .25s ease;
+    display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(0,0,0,.5);}
+  #info.open{transform:translateX(0);}
+  #info .head{padding:18px 18px 12px;border-bottom:1px solid var(--border);}
+  #info .tag{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 8px;border-radius:3px;margin-bottom:8px;background:#2a2c1c;color:var(--accent);}
+  #info .tag.faction{color:var(--accent2);}
+  #info .tag.danger{color:#e9684f;}
+  #info h2{margin:0;font-size:19px;line-height:1.25;}
+  #info .body{padding:16px 18px;overflow-y:auto;font-size:14px;line-height:1.6;color:#d7d3c2;}
+  #info .body img{max-width:100%;border-radius:6px;margin:6px 0;}
+  #info .close{position:absolute;top:12px;right:14px;cursor:pointer;
+    font-size:22px;line-height:1;color:var(--muted);background:none;border:none;}
+  #info .close:hover{color:var(--text);}
+
+  /* legend */
+  #legend{position:fixed;left:12px;bottom:12px;z-index:30;background:rgba(29,31,20,.85);
+    border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;
+    backdrop-filter:blur(4px);}
+  #legend .row{display:flex;align-items:center;gap:8px;margin:3px 0;color:var(--muted);}
+  #legend .dot{width:11px;height:11px;border-radius:50%;}
+  .d-loc{background:var(--accent);}
+  .d-fac{background:var(--accent2);}
+  .d-dan{background:#c8462f;}
+
+  /* hint */
+  #hint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;
+    font-size:11px;color:var(--muted);background:rgba(20,21,14,.7);
+    padding:5px 12px;border-radius:20px;pointer-events:none;}
+  @media(max-width:600px){#hint{display:none;} #legend{font-size:11px;}}
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <h1>Новая Александрия</h1>
+  <span class="sub">Шестое Царство · интерактивная карта</span>
+</div>
+
+<div id="viewer"></div>
+
+<div id="legend">
+  <div class="row"><span class="dot d-loc"></span> Локация</div>
+  <div class="row"><span class="dot d-fac"></span> Фракция / корпорация</div>
+  <div class="row"><span class="dot d-dan"></span> Опасная зона</div>
+</div>
+
+<div id="hint">Колесо / щипок — зум · перетаскивание — навигация · клик по точке — инфо</div>
+
+<div id="info">
+  <button class="close" onclick="closeInfo()">×</button>
+  <div class="head">
+    <span class="tag" id="info-tag">Локация</span>
+    <h2 id="info-title">—</h2>
+  </div>
+  <div class="body" id="info-body"></div>
+</div>
+
+<!-- OpenSeadragon -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
+<script>
+/* ============================================================
+   ТОЧКИ НА КАРТЕ — РЕДАКТИРУЙ ЭТОТ МАССИВ
+   ------------------------------------------------------------
+   x, y  : координаты от 0 до 1 (доля ширины/высоты карты).
+           x=0 — левый край, x=1 — правый; y=0 — верх, y=1 — низ.
+           Чтобы найти координаты: открой карту, наведи курсор,
+           в консоли браузера (F12) будут печататься координаты клика.
+   type  : "loc" (локация), "faction" (фракция), "danger" (опасно)
+   title : заголовок
+   html  : описание (можно HTML: <b>, <br>, <img src="...">, ссылки)
+   ============================================================ */
+const PINS = [
+  {
+    x:0.20, y:0.55, type:"faction",
+    title:"Западный квартал",
+    html:"Пример точки фракции.<br><br>Сюда впиши лор: кто контролирует район, какие корпорации, чем опасен. Поддерживается <b>HTML</b>."
+  },
+  {
+    x:0.50, y:0.32, type:"loc",
+    title:"Старый порт",
+    html:"Пример обычной локации. Замени текст на своё описание."
+  },
+  {
+    x:0.74, y:0.50, type:"danger",
+    title:"Чёрные доки",
+    html:"Пример опасной зоны. Красные точки — для зон повышенного риска."
+  }
+];
+
+/* ---- viewer setup ---- */
+const viewer = OpenSeadragon({
+  id:"viewer",
+  prefixUrl:"https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+  tileSources:"alexandria.dzi",
+  showNavigator:true,
+  navigatorPosition:"TOP_RIGHT",
+  navigatorHeight:"120px",
+  navigatorWidth:"120px",
+  maxZoomPixelRatio:2.2,
+  minZoomLevel:0.6,
+  visibilityRatio:0.85,
+  constrainDuringPan:true,
+  zoomPerScroll:1.4,
+  gestureSettingsTouch:{ pinchToZoom:true, flickEnabled:true },
+  animationTime:0.5,
+  springStiffness:7
+});
+
+/* ---- add pins as overlays once the image is loaded ---- */
+viewer.addHandler("open", function(){
+  const size = viewer.world.getItemAt(0).getContentSize(); // px dims
+  const aspect = size.y / size.x;
+  PINS.forEach((p, i)=>{
+    const el = document.createElement("div");
+    el.className = "pin" + (p.type==="faction" ? " faction" : p.type==="danger" ? " danger" : "");
+    el.title = p.title;
+    el.addEventListener("click", (e)=>{ e.stopPropagation(); openInfo(p); });
+    // OSD viewport coords: x in [0,1], y in [0,aspect]
+    viewer.addOverlay({
+      element: el,
+      location: new OpenSeadragon.Point(p.x, p.y * aspect),
+      placement: OpenSeadragon.Placement.BOTTOM
+    });
+  });
+});
+
+/* ---- info panel ---- */
+const info = document.getElementById("info");
+function openInfo(p){
+  const tag = document.getElementById("info-tag");
+  tag.textContent = p.type==="faction" ? "Фракция / корпорация" : p.type==="danger" ? "Опасная зона" : "Локация";
+  tag.className = "tag" + (p.type==="faction" ? " faction" : p.type==="danger" ? " danger" : "");
+  document.getElementById("info-title").textContent = p.title;
+  document.getElementById("info-body").innerHTML = p.html;
+  info.classList.add("open");
+}
+function closeInfo(){ info.classList.remove("open"); }
+
+/* ---- coordinate helper: prints normalized coords on click (for placing pins) ---- */
+viewer.addHandler("canvas-click", function(event){
+  if(event.quick){
+    const vp = viewer.viewport.pointFromPixel(event.position);
+    const size = viewer.world.getItemAt(0).getContentSize();
+    const aspect = size.y / size.x;
+    const nx = vp.x;
+    const ny = vp.y / aspect;
+    if(nx>=0 && nx<=1 && ny>=0 && ny<=1){
+      console.log(`координаты точки →  x:${nx.toFixed(3)}, y:${ny.toFixed(3)}`);
+    }
+  }
+});
+</script>
+</body>
+</html>
