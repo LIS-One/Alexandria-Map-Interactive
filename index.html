@@ -5,74 +5,129 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <title>Новая Александрия — карта</title>
 <style>
-  :root{
-    --bg:#16170f;
-    --panel:#1d1f14;
-    --accent:#d8a01e;
-    --accent2:#3fae5a;
-    --text:#e8e4d4;
-    --muted:#9a9580;
-    --border:#3a3a28;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
-  #viewer{position:fixed;inset:0;background:#0e0f0a;}
+:root{
+  --bg:#16170f;
+  --panel:#1d1f14;
+  --accent:#d8a01e;
+  --accent2:#3fae5a;
+  --text:#e8e4d4;
+  --muted:#9a9580;
+  --border:#3a3a28;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+#viewer{position:fixed;inset:0;background:#0e0f0a;}
+body.editing #viewer{cursor:crosshair;}
 
-  /* title bar */
-  #bar{position:fixed;top:0;left:0;right:0;height:46px;z-index:30;
-    display:flex;align-items:center;gap:12px;padding:0 14px;
-    background:linear-gradient(180deg,rgba(20,21,14,.92),rgba(20,21,14,.55) 70%,transparent);
-    pointer-events:none;}
-  #bar h1{margin:0;font-size:15px;letter-spacing:.08em;font-weight:600;
-    text-transform:uppercase;color:var(--accent);text-shadow:0 1px 4px #000;}
-  #bar .sub{font-size:11px;color:var(--muted);text-shadow:0 1px 3px #000;}
+/* title bar */
+#bar{position:fixed;top:0;left:0;right:0;height:46px;z-index:30;
+  display:flex;align-items:center;gap:12px;padding:0 14px;
+  background:linear-gradient(180deg,rgba(20,21,14,.92),rgba(20,21,14,.55) 70%,transparent);
+  pointer-events:none;}
+#bar h1{margin:0;font-size:15px;letter-spacing:.08em;font-weight:600;
+  text-transform:uppercase;color:var(--accent);text-shadow:0 1px 4px #000;}
+#bar .sub{font-size:11px;color:var(--muted);text-shadow:0 1px 3px #000;}
 
-  /* pin markers */
-  .pin{width:18px;height:18px;border-radius:50% 50% 50% 0;
-    background:var(--accent);border:2px solid #16170f;
-    transform:rotate(-45deg) translate(-2px,-2px);
-    cursor:pointer;box-shadow:0 0 0 1px var(--accent),0 2px 6px rgba(0,0,0,.6);
-    transition:transform .12s ease, background .12s ease;}
-  .pin:hover{background:#ffd454;transform:rotate(-45deg) scale(1.25) translate(-2px,-2px);}
-  .pin.faction{background:var(--accent2);box-shadow:0 0 0 1px var(--accent2),0 2px 6px rgba(0,0,0,.6);}
-  .pin.faction:hover{background:#6ee08a;}
-  .pin.danger{background:#c8462f;box-shadow:0 0 0 1px #c8462f,0 2px 6px rgba(0,0,0,.6);}
-  .pin.danger:hover{background:#e9684f;}
+/* edit toggle + toolbar */
+#editbtn{position:fixed;top:10px;right:12px;z-index:35;
+  background:var(--panel);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);}
+#editbtn:hover{border-color:var(--accent);color:var(--accent);}
+#editbtn.on{background:var(--accent);color:#16170f;border-color:var(--accent);font-weight:700;}
+#toolbar{position:fixed;top:52px;right:12px;z-index:35;display:none;
+  flex-direction:column;gap:6px;background:rgba(29,31,20,.95);
+  border:1px solid var(--border);border-radius:10px;padding:10px;
+  box-shadow:0 4px 16px rgba(0,0,0,.5);max-width:230px;}
+body.editing #toolbar{display:flex;}
+#toolbar .tip{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:2px;}
+#toolbar button{background:#2a2c1c;border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;text-align:left;}
+#toolbar button:hover{border-color:var(--accent);}
+#toolbar button.danger:hover{border-color:#c8462f;color:#e9684f;}
 
-  /* info popup */
-  #info{position:fixed;z-index:40;top:0;right:0;height:100%;width:340px;max-width:86vw;
-    background:var(--panel);border-left:1px solid var(--border);
-    transform:translateX(105%);transition:transform .25s ease;
-    display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(0,0,0,.5);}
-  #info.open{transform:translateX(0);}
-  #info .head{padding:18px 18px 12px;border-bottom:1px solid var(--border);}
-  #info .tag{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
-    padding:3px 8px;border-radius:3px;margin-bottom:8px;background:#2a2c1c;color:var(--accent);}
-  #info .tag.faction{color:var(--accent2);}
-  #info .tag.danger{color:#e9684f;}
-  #info h2{margin:0;font-size:19px;line-height:1.25;}
-  #info .body{padding:16px 18px;overflow-y:auto;font-size:14px;line-height:1.6;color:#d7d3c2;}
-  #info .body img{max-width:100%;border-radius:6px;margin:6px 0;}
-  #info .close{position:absolute;top:12px;right:14px;cursor:pointer;
-    font-size:22px;line-height:1;color:var(--muted);background:none;border:none;}
-  #info .close:hover{color:var(--text);}
+/* pin markers */
+.pin{width:18px;height:18px;border-radius:50% 50% 50% 0;
+  background:var(--accent);border:2px solid #16170f;
+  transform:rotate(-45deg) translate(-2px,-2px);
+  cursor:pointer;box-shadow:0 0 0 1px var(--accent),0 2px 6px rgba(0,0,0,.6);
+  transition:transform .12s ease, background .12s ease;}
+.pin:hover{background:#ffd454;transform:rotate(-45deg) scale(1.25) translate(-2px,-2px);}
+.pin.faction{background:var(--accent2);box-shadow:0 0 0 1px var(--accent2),0 2px 6px rgba(0,0,0,.6);}
+.pin.faction:hover{background:#6ee08a;}
+.pin.danger{background:#c8462f;box-shadow:0 0 0 1px #c8462f,0 2px 6px rgba(0,0,0,.6);}
+.pin.danger:hover{background:#e9684f;}
+/* пользовательская (несохранённая в код) точка — пунктирная обводка */
+.pin.user{border-style:dashed;border-color:#fff;}
 
-  /* legend */
-  #legend{position:fixed;left:12px;bottom:12px;z-index:30;background:rgba(29,31,20,.85);
-    border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;
-    backdrop-filter:blur(4px);}
-  #legend .row{display:flex;align-items:center;gap:8px;margin:3px 0;color:var(--muted);}
-  #legend .dot{width:11px;height:11px;border-radius:50%;}
-  .d-loc{background:var(--accent);}
-  .d-fac{background:var(--accent2);}
-  .d-dan{background:#c8462f;}
+/* info popup */
+#info{position:fixed;z-index:40;top:0;right:0;height:100%;width:340px;max-width:86vw;
+  background:var(--panel);border-left:1px solid var(--border);
+  transform:translateX(105%);transition:transform .25s ease;
+  display:flex;flex-direction:column;box-shadow:-8px 0 24px rgba(0,0,0,.5);}
+#info.open{transform:translateX(0);}
+#info .head{padding:18px 18px 12px;border-bottom:1px solid var(--border);}
+#info .tag{display:inline-block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 8px;border-radius:3px;margin-bottom:8px;background:#2a2c1c;color:var(--accent);}
+#info .tag.faction{color:var(--accent2);}
+#info .tag.danger{color:#e9684f;}
+#info h2{margin:0;font-size:19px;line-height:1.25;}
+#info .body{padding:16px 18px;overflow-y:auto;font-size:14px;line-height:1.6;color:#d7d3c2;}
+#info .body img{max-width:100%;border-radius:6px;margin:6px 0;}
+#info .close{position:absolute;top:12px;right:14px;cursor:pointer;
+  font-size:22px;line-height:1;color:var(--muted);background:none;border:none;}
+#info .close:hover{color:var(--text);}
 
-  /* hint */
-  #hint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;
-    font-size:11px;color:var(--muted);background:rgba(20,21,14,.7);
-    padding:5px 12px;border-radius:20px;pointer-events:none;}
-  @media(max-width:600px){#hint{display:none;} #legend{font-size:11px;}}
+/* legend */
+#legend{position:fixed;left:12px;bottom:12px;z-index:30;background:rgba(29,31,20,.85);
+  border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;
+  backdrop-filter:blur(4px);}
+#legend .row{display:flex;align-items:center;gap:8px;margin:3px 0;color:var(--muted);}
+#legend .dot{width:11px;height:11px;border-radius:50%;}
+.d-loc{background:var(--accent);}
+.d-fac{background:var(--accent2);}
+.d-dan{background:#c8462f;}
+
+/* hint */
+#hint{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;
+  font-size:11px;color:var(--muted);background:rgba(20,21,14,.7);
+  padding:5px 12px;border-radius:20px;pointer-events:none;}
+@media(max-width:600px){#hint{display:none;} #legend{font-size:11px;}}
+
+/* ─── модалка добавления/редактирования точки ─── */
+#formwrap{position:fixed;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;background:rgba(0,0,0,.55);}
+#formwrap.open{display:flex;}
+#pinform{width:400px;max-width:92vw;background:var(--panel);
+  border:1px solid var(--border);border-radius:12px;padding:20px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);}
+#pinform h3{margin:0 0 14px;font-size:16px;color:var(--accent);
+  letter-spacing:.05em;text-transform:uppercase;}
+#pinform label{display:block;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted);margin:10px 0 4px;}
+#pinform input[type=text], #pinform select, #pinform textarea{
+  width:100%;background:#14150d;border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:8px 10px;font-size:14px;font-family:inherit;}
+#pinform textarea{min-height:110px;resize:vertical;line-height:1.5;}
+#pinform input:focus, #pinform select:focus, #pinform textarea:focus{
+  outline:none;border-color:var(--accent);}
+#pinform .coords{font-size:11px;color:var(--muted);margin-top:6px;}
+#pinform .btns{display:flex;gap:8px;margin-top:16px;}
+#pinform .btns button{flex:1;padding:9px 0;border-radius:7px;font-size:13px;
+  cursor:pointer;border:1px solid var(--border);background:#2a2c1c;color:var(--text);}
+#pinform .btns .save{background:var(--accent);border-color:var(--accent);
+  color:#16170f;font-weight:700;}
+#pinform .btns .save:hover{background:#ffd454;}
+#pinform .btns .del{border-color:#c8462f;color:#e9684f;flex:0 0 auto;padding:9px 14px;}
+#pinform .btns .del:hover{background:#c8462f;color:#fff;}
+
+/* toast */
+#toast{position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:70;
+  background:var(--accent);color:#16170f;font-size:13px;font-weight:600;
+  padding:8px 18px;border-radius:20px;opacity:0;transition:opacity .3s;
+  pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.4);}
+#toast.show{opacity:1;}
 </style>
 </head>
 <body>
@@ -83,6 +138,15 @@
 </div>
 
 <div id="viewer"></div>
+
+<button id="editbtn" onclick="toggleEdit()">✏️ Редактор</button>
+
+<div id="toolbar">
+  <div class="tip">Клик по карте — новая точка.<br>Клик по пунктирной точке — правка.<br>Точки из кода в редакторе не меняются.</div>
+  <button onclick="copyCode()">📋 Скопировать код точек</button>
+  <button onclick="downloadJSON()">💾 Скачать JSON</button>
+  <button class="danger" onclick="clearUserPins()">🗑 Удалить мои точки</button>
+</div>
 
 <div id="legend">
   <div class="row"><span class="dot d-loc"></span> Локация</div>
@@ -101,19 +165,39 @@
   <div class="body" id="info-body"></div>
 </div>
 
+<!-- форма точки -->
+<div id="formwrap">
+  <div id="pinform">
+    <h3 id="form-title">Новая точка</h3>
+    <label>Название</label>
+    <input type="text" id="f-title" placeholder="Старый порт">
+    <label>Тип</label>
+    <select id="f-type">
+      <option value="loc">Локация</option>
+      <option value="faction">Фракция / корпорация</option>
+      <option value="danger">Опасная зона</option>
+    </select>
+    <label>Описание (можно HTML: &lt;b&gt;, &lt;br&gt;, &lt;img&gt;)</label>
+    <textarea id="f-html" placeholder="Кто контролирует, чем известно, чем опасно..."></textarea>
+    <div class="coords" id="f-coords"></div>
+    <div class="btns">
+      <button class="del" id="f-del" onclick="deletePin()" style="display:none">🗑</button>
+      <button onclick="closeForm()">Отмена</button>
+      <button class="save" onclick="savePin()">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
 <!-- OpenSeadragon -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
 <script>
 /* ============================================================
-   ТОЧКИ НА КАРТЕ — РЕДАКТИРУЙ ЭТОТ МАССИВ
-   ------------------------------------------------------------
-   x, y  : координаты от 0 до 1 (доля ширины/высоты карты).
-           x=0 — левый край, x=1 — правый; y=0 — верх, y=1 — низ.
-           Чтобы найти координаты: открой карту, наведи курсор,
-           в консоли браузера (F12) будут печататься координаты клика.
-   type  : "loc" (локация), "faction" (фракция), "danger" (опасно)
-   title : заголовок
-   html  : описание (можно HTML: <b>, <br>, <img src="...">, ссылки)
+   ТОЧКИ ИЗ КОДА — постоянные, видны всем.
+   Добавляй новые через ✏️ Редактор → «Скопировать код точек» →
+   вставь сюда вместо всего массива → закоммить → и нажми
+   «Удалить мои точки», чтобы не задваивались.
    ============================================================ */
 const PINS = [
   {
@@ -132,6 +216,19 @@ const PINS = [
     html:"Пример опасной зоны. Красные точки — для зон повышенного риска."
   }
 ];
+
+/* ============================================================
+   ПОЛЬЗОВАТЕЛЬСКИЕ ТОЧКИ — живут в localStorage ЭТОГО браузера.
+   Игроки их не видят, пока не перенесёшь в PINS и не закоммитишь.
+   ============================================================ */
+const LS_KEY = "alexandria_user_pins";
+let userPins = [];
+try { userPins = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); }
+catch(e){ userPins = []; }
+function persist(){
+  try { localStorage.setItem(LS_KEY, JSON.stringify(userPins)); }
+  catch(e){ toast("⚠️ Не удалось сохранить (localStorage недоступен)"); }
+}
 
 /* ---- viewer setup ---- */
 const viewer = OpenSeadragon({
@@ -152,23 +249,39 @@ const viewer = OpenSeadragon({
   springStiffness:7
 });
 
-/* ---- add pins as overlays once the image is loaded ---- */
+let aspect = 1;
+
 viewer.addHandler("open", function(){
-  const size = viewer.world.getItemAt(0).getContentSize(); // px dims
-  const aspect = size.y / size.x;
-  PINS.forEach((p, i)=>{
-    const el = document.createElement("div");
-    el.className = "pin" + (p.type==="faction" ? " faction" : p.type==="danger" ? " danger" : "");
-    el.title = p.title;
-    el.addEventListener("click", (e)=>{ e.stopPropagation(); openInfo(p); });
-    // OSD viewport coords: x in [0,1], y in [0,aspect]
-    viewer.addOverlay({
-      element: el,
-      location: new OpenSeadragon.Point(p.x, p.y * aspect),
-      placement: OpenSeadragon.Placement.BOTTOM
-    });
-  });
+  const size = viewer.world.getItemAt(0).getContentSize();
+  aspect = size.y / size.x;
+  drawPins();
 });
+
+/* ---- отрисовка всех точек ---- */
+function drawPins(){
+  viewer.clearOverlays();
+  PINS.forEach(p => addPinOverlay(p, false, -1));
+  userPins.forEach((p, i) => addPinOverlay(p, true, i));
+}
+
+function addPinOverlay(p, isUser, idx){
+  const el = document.createElement("div");
+  el.className = "pin"
+    + (p.type==="faction" ? " faction" : p.type==="danger" ? " danger" : "")
+    + (isUser ? " user" : "");
+  el.title = p.title;
+  el.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    if (editMode && isUser) { openForm(idx); }
+    else if (editMode && !isUser) { toast("Точка из кода — правится в index.html"); openInfo(p); }
+    else { openInfo(p); }
+  });
+  viewer.addOverlay({
+    element: el,
+    location: new OpenSeadragon.Point(p.x, p.y * aspect),
+    placement: OpenSeadragon.Placement.BOTTOM
+  });
+}
 
 /* ---- info panel ---- */
 const info = document.getElementById("info");
@@ -182,19 +295,129 @@ function openInfo(p){
 }
 function closeInfo(){ info.classList.remove("open"); }
 
-/* ---- coordinate helper: prints normalized coords on click (for placing pins) ---- */
+/* ============================================================
+   РЕЖИМ РЕДАКТОРА
+   ============================================================ */
+let editMode = false;
+function toggleEdit(){
+  editMode = !editMode;
+  document.body.classList.toggle("editing", editMode);
+  document.getElementById("editbtn").classList.toggle("on", editMode);
+  closeInfo();
+}
+
+/* клик по карте в режиме редактора → форма новой точки */
 viewer.addHandler("canvas-click", function(event){
-  if(event.quick){
-    const vp = viewer.viewport.pointFromPixel(event.position);
-    const size = viewer.world.getItemAt(0).getContentSize();
-    const aspect = size.y / size.x;
-    const nx = vp.x;
-    const ny = vp.y / aspect;
-    if(nx>=0 && nx<=1 && ny>=0 && ny<=1){
-      console.log(`координаты точки →  x:${nx.toFixed(3)}, y:${ny.toFixed(3)}`);
-    }
+  if(!event.quick) return;
+  const vp = viewer.viewport.pointFromPixel(event.position);
+  const nx = vp.x;
+  const ny = vp.y / aspect;
+  if(nx<0 || nx>1 || ny<0 || ny>1) return;
+  if(editMode){
+    event.preventDefaultAction = true;
+    openForm(null, {x:+nx.toFixed(4), y:+ny.toFixed(4)});
+  } else {
+    console.log(`координаты точки → x:${nx.toFixed(3)}, y:${ny.toFixed(3)}`);
   }
 });
+
+/* ---- форма ---- */
+const formwrap = document.getElementById("formwrap");
+let editingIdx = null;   // null = новая точка
+let pendingCoords = null;
+
+function openForm(idx, coords){
+  editingIdx = idx;
+  pendingCoords = coords || null;
+  const isEdit = idx !== null && idx !== undefined && idx >= 0;
+  document.getElementById("form-title").textContent = isEdit ? "Правка точки" : "Новая точка";
+  document.getElementById("f-del").style.display = isEdit ? "block" : "none";
+  const p = isEdit ? userPins[idx] : {title:"", type:"loc", html:""};
+  document.getElementById("f-title").value = p.title;
+  document.getElementById("f-type").value = p.type;
+  document.getElementById("f-html").value = p.html;
+  const c = isEdit ? {x:p.x, y:p.y} : coords;
+  document.getElementById("f-coords").textContent = `координаты: x ${c.x}, y ${c.y}`;
+  formwrap.classList.add("open");
+  document.getElementById("f-title").focus();
+}
+
+function closeForm(){
+  formwrap.classList.remove("open");
+  editingIdx = null;
+  pendingCoords = null;
+}
+
+function savePin(){
+  const title = document.getElementById("f-title").value.trim();
+  if(!title){ toast("⚠️ Впиши название"); return; }
+  const pin = {
+    x: editingIdx !== null && editingIdx >= 0 ? userPins[editingIdx].x : pendingCoords.x,
+    y: editingIdx !== null && editingIdx >= 0 ? userPins[editingIdx].y : pendingCoords.y,
+    type: document.getElementById("f-type").value,
+    title: title,
+    html: document.getElementById("f-html").value
+  };
+  if(editingIdx !== null && editingIdx >= 0){ userPins[editingIdx] = pin; }
+  else { userPins.push(pin); }
+  persist();
+  drawPins();
+  closeForm();
+  toast("✅ Точка сохранена (в этом браузере)");
+}
+
+function deletePin(){
+  if(editingIdx === null || editingIdx < 0) return;
+  userPins.splice(editingIdx, 1);
+  persist();
+  drawPins();
+  closeForm();
+  toast("Точка удалена");
+}
+
+/* ---- экспорт ---- */
+function pinToCode(p){
+  const esc = s => String(s).replace(/\\/g,"\\\\").replace(/"/g,'\\"');
+  return `  {\n    x:${p.x}, y:${p.y}, type:"${p.type}",\n    title:"${esc(p.title)}",\n    html:"${esc(p.html).replace(/\n/g,"<br>")}"\n  }`;
+}
+
+function copyCode(){
+  const all = PINS.concat(userPins);
+  const code = "const PINS = [\n" + all.map(pinToCode).join(",\n") + "\n];";
+  navigator.clipboard.writeText(code).then(
+    ()=> toast(`📋 Скопировано ${all.length} точек — вставь в index.html вместо PINS`),
+    ()=> { prompt("Скопируй вручную:", code); }
+  );
+}
+
+function downloadJSON(){
+  const all = PINS.concat(userPins);
+  const blob = new Blob([JSON.stringify(all, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "alexandria_pins.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function clearUserPins(){
+  if(!userPins.length){ toast("Локальных точек нет"); return; }
+  if(!confirm(`Удалить все ${userPins.length} локальных точек? Точки из кода останутся.`)) return;
+  userPins = [];
+  persist();
+  drawPins();
+  toast("Локальные точки удалены");
+}
+
+/* ---- toast ---- */
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 2600);
+}
 </script>
 </body>
 </html>
